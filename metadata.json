@@ -1,0 +1,5 @@
+{
+  "name": "Shilling Sense v2",
+  "description": "An intelligent personal finance manager for the Kenyan market that uses Gemini AI to automate transaction entry and categorization from text, images, or CSV files. Features a data-forward design, gamification, and learns from user corrections to improve its accuracy over time.",
+  "requestFramePermissions": []
+}
