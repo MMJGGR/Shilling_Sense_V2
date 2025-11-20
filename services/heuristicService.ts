@@ -6,12 +6,19 @@ export interface HeuristicData {
 }
 
 // Rules to extract merchant names. The order is important.
+// Rules to extract merchant names. The order is important.
 const merchantExtractors = [
     { regex: /Lipa na M-PESA to (.+?)(?: Transaction ID:|$)/i, group: 1 },
     { regex: /Pay Bill to (.+?)(?: Acc No\..*|$)/i, group: 1 },
     { regex: /M-PESA Paybill, (.+?),/i, group: 1 },
     { regex: /Card Purchase at (.+?)(?: on .*|$)/i, group: 1 },
     { regex: /Withdrawal from Agent ([\d\w\s-]+?)(?: at .*|$)/i, group: 1, prefix: 'Agent ' },
+    // New patterns for the user's bank format
+    { regex: /IBKG MPESA PAY TO \d+-(.+?)-MOBILE MONEY/i, group: 1 },
+    { regex: /DEBIT CARD TXN AT (.+?)(?:\s{2,}| \d{2}-\d{2}-\d{4})/i, group: 1 },
+    { regex: /KE-\d+-\d+-\d+-\d+ (.+?) \d+/i, group: 1 }, // Matches "KE-013-... FRANCIS HAIR SALON ... 0002..."
+    { regex: /IBKG MPESA PAY TO \d+-(.+?)-AIRTIME/i, group: 1 },
+    { regex: /IBKG MPESA PAY TO \d+-(.+?)-MOBILE MONEY TRANSFER/i, group: 1 },
 ];
 
 // Regex to find points
