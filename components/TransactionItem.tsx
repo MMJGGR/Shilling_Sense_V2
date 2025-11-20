@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Transaction, Category } from '../types';
 
+import { useMerchantName } from '../hooks/useMerchantName';
+
 interface TransactionItemProps {
   transaction: Transaction;
   accountName: string;
@@ -11,12 +13,13 @@ interface TransactionItemProps {
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, accountName, onEdit }) => {
   const [logoError, setLogoError] = useState(false);
-  
-  const merchantName = transaction.merchant || 'Untitled Transaction';
-  const merchantInitial = (transaction.merchant || '?').charAt(0).toUpperCase();
+
+  const rawMerchantName = transaction.merchant || 'Untitled Transaction';
+  const merchantName = useMerchantName(rawMerchantName);
+  const merchantInitial = merchantName.charAt(0).toUpperCase();
 
   return (
-    <li 
+    <li
       className={`group flex items-center justify-between px-4 py-3 sm:px-6 transition-all cursor-pointer border-b border-brand-gray-100 last:border-0 ${transaction.isTransfer ? 'opacity-60 hover:opacity-100 bg-brand-gray-50/50' : 'hover:bg-brand-green-50/30'}`}
       onClick={() => onEdit(transaction)}
       role="button"
@@ -42,9 +45,9 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, accountN
           {transaction.type === 'income' ? '+' : '-'} {transaction.amount.toLocaleString()}
         </p>
         <div className="mt-1">
-             <span className="inline-block max-w-[100px] truncate rounded-full bg-brand-gray-100 px-2 py-0.5 text-[10px] font-medium text-brand-gray-600 group-hover:bg-brand-green-100 group-hover:text-brand-green-800 transition-colors">
-                {transaction.category}
-              </span>
+          <span className="inline-block max-w-[100px] truncate rounded-full bg-brand-gray-100 px-2 py-0.5 text-[10px] font-medium text-brand-gray-600 group-hover:bg-brand-green-100 group-hover:text-brand-green-800 transition-colors">
+            {transaction.category}
+          </span>
         </div>
       </div>
     </li>

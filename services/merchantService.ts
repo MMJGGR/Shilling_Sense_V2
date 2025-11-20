@@ -1,7 +1,7 @@
 import { Transaction } from '../types';
 
 const GOOGLE_API_KEY = process.env.API_KEY || '';
-const GOOGLE_CX = ''; // TODO: User needs to provide this
+const GOOGLE_CX = 'e36384b8e40a34109'; // User provided CX ID
 
 interface MerchantDictionary {
     [rawName: string]: string;
@@ -36,6 +36,17 @@ class MerchantService {
         } catch (e) {
             console.error('Failed to save merchant dictionary', e);
         }
+    }
+
+    private listeners: Set<(rawName: string, enrichedName: string) => void> = new Set();
+
+    public subscribe(listener: (rawName: string, enrichedName: string) => void): () => void {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    }
+
+    private notifyListeners(rawName: string, enrichedName: string) {
+        this.listeners.forEach(listener => listener(rawName, enrichedName));
     }
 
     public getEnrichedName(rawName: string): string {
@@ -86,6 +97,7 @@ class MerchantService {
             if (enrichedName) {
                 this.dictionary[rawName] = enrichedName;
                 this.saveDictionary();
+                this.notifyListeners(rawName, enrichedName);
             } else {
                 // If search failed or returned nothing, maybe mark as "checked" to avoid re-searching?
                 // For now, we just leave it.

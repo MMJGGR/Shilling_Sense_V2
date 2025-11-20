@@ -98,36 +98,19 @@ const BudgetModal: React.FC<BudgetModalProps> = ({ isOpen, onClose, onSave, tran
             else if (presenceRatio < 0.8) frequency = 'Occasional';
 
             const existing = existingBudgets.find(b => b.category === cat);
-            const isDiscretionary = DISCRETIONARY_CATEGORIES.includes(cat);
-            const isSavings = SAVINGS_CATEGORIES.includes(cat);
 
-            // --- GOAL-DRIVEN LOGIC ---
+            // ROBUST MATCHING: Normalize strings to avoid mismatches (e.g. "Ride Sharing" vs "Ride Sharing/Food Delivery")
+            const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const normalizedCat = normalize(cat);
+
+            const isDiscretionary = DISCRETIONARY_CATEGORIES.some(dc => normalize(dc) === normalizedCat || normalizedCat.includes(normalize(dc)) || normalize(dc).includes(normalizedCat));
+            const isSavings = SAVINGS_CATEGORIES.some(sc => normalize(sc) === normalizedCat || normalizedCat.includes(normalize(sc)) || normalize(sc).includes(normalizedCat));
+
+            // --- GOAL-DRIVEN LOGIC REMOVED (Reset per user request) ---
+            // Default to average, no automatic cuts/increases.
+            // FORCE RESET: Ignore 'existing' strategy to clear old "aggressive" states.
             let suggestedLimit = Math.round(average);
-            let strategy: BudgetStrategy = existing ? existing.strategy : 'maintain';
-
-            if (!existing && userProfile) {
-                const goal = userProfile.primaryGoal;
-
-                if (isSavings) {
-                    // PROTECT SAVINGS: Never suggest cutting. Suggest increasing for savings goals.
-                    if (['save_emergency', 'invest', 'buy_asset', 'travel'].includes(goal)) {
-                        suggestedLimit = Math.round(average * 1.1); // Suggest 10% increase
-                        strategy = 'increase';
-                    } else {
-                        strategy = 'maintain';
-                    }
-                } else if (isDiscretionary) {
-                    // CUT DISCRETIONARY: Aggressively cut for savings/debt goals.
-                    if (['save_emergency', 'pay_debt', 'control_spend'].includes(goal)) {
-                        suggestedLimit = Math.round(average * 0.8); // Suggest 20% cut
-                        strategy = 'aggressive';
-                    } else if (['invest', 'buy_asset'].includes(goal)) {
-                        suggestedLimit = Math.round(average * 0.9); // Suggest 10% cut
-                        strategy = 'moderate';
-                    }
-                }
-                // Essentials are left at 'maintain' / average usually, unless we add specific logic for them.
-            }
+            let strategy: BudgetStrategy = 'maintain';
 
             return {
                 category: cat,
@@ -137,7 +120,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({ isOpen, onClose, onSave, tran
                 history: monthlyValues, // 0 is most recent
                 frequency,
                 volatility,
-                limit: existing ? existing.limit : suggestedLimit,
+                limit: suggestedLimit, // FORCE RESET: Overwrite existing limit with average
                 strategy: strategy,
                 isDiscretionary,
                 isSavings,
@@ -301,12 +284,20 @@ const BudgetModal: React.FC<BudgetModalProps> = ({ isOpen, onClose, onSave, tran
 
                 {/* Option 3: Hard Cut (if discretionary) */}
                 {draft.isDiscretionary && (
-                    <button
-                        onClick={() => updateDraft(draft.category, { limit: Math.round(draft.average * 0.8), strategy: 'aggressive' })}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${draft.strategy === 'aggressive' && !isStable ? 'bg-red-100 text-red-700 border-red-200' : 'bg-white text-gray-600 hover:bg-red-50'}`}
-                    >
-                        Cut 20%
-                    </button>
+                    <>
+                        <button
+                            onClick={() => updateDraft(draft.category, { limit: Math.round(draft.average * 0.9), strategy: 'moderate' })}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${draft.strategy === 'moderate' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-white text-gray-600 hover:bg-yellow-50'}`}
+                        >
+                            Cut 10%
+                        </button>
+                        <button
+                            onClick={() => updateDraft(draft.category, { limit: Math.round(draft.average * 0.8), strategy: 'aggressive' })}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${draft.strategy === 'aggressive' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-white text-gray-600 hover:bg-red-50'}`}
+                        >
+                            Cut 20%
+                        </button>
+                    </>
                 )}
             </div>
         );
