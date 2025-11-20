@@ -71,6 +71,16 @@ class MerchantService {
                 return;
             }
 
+            // Detect P2P transfers (phone-to-phone, no real merchant)
+            const isP2PTransfer = /IBKG MPESA PAY TO \d{12}|MPESA TO ACC|MOBILE MONEY/.test(t.description || t.merchant);
+            if (isP2PTransfer) {
+                // Cache as "Mobile Money Transfer" and skip search
+                this.dictionary[t.merchant] = 'Mobile Money Transfer';
+                this.saveDictionary();
+                this.notifyListeners(t.merchant, 'Mobile Money Transfer');
+                return;
+            }
+
             // Try heuristic extraction first
             const { merchant: extractedMerchant } = extractHeuristicData(t.description || t.merchant);
 
@@ -92,7 +102,16 @@ class MerchantService {
                     this.notifyListeners(t.merchant, this.dictionary[extractedMerchant]);
                 }
             } else {
-                // No regex match, will need Google Search
+                // No regex match, check if it's a fee/charge (not worth searching)
+                const isFeeOrCharge = /EXCISE DUTY|CHARGE|PAYMENT OF \d+|CORR\.|REV-/.test(t.description || t.merchant);
+                if (isFeeOrCharge) {
+                    // Cache as-is and skip search
+                    this.dictionary[t.merchant] = t.merchant;
+                    this.saveDictionary();
+                    return;
+                }
+
+                // Will need Google Search
                 merchantsToSearch.set(t.merchant, t.description);
             }
         });
@@ -139,7 +158,7 @@ class MerchantService {
                 // For now, we just leave it.
             }
         } catch (error) {
-            console.error(`Failed to identify merchant: ${rawName}`, error);
+            console.error(`Failed to identify merchant: ${rawName} `, error);
         } finally {
             this.pendingSearches.delete(rawName);
         }
