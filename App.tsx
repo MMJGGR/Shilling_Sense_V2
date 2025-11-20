@@ -464,7 +464,7 @@ const App: React.FC = () => {
                     ) : (
                         <BudgetView
                             budgets={budgets} transactions={transactions} userProfile={userProfile}
-                            onAddBudget={() => setIsBudgetModalOpen(true)}
+                            onAddBudget={addBudget}
                             onDelete={id => setBudgets(prev => prev.filter(b => b.id !== id))}
                             onEdit={() => setIsBudgetModalOpen(true)}
                             onClearAll={clearBudgets}

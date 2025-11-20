@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { CategorizationExample, Category, EnrichedMerchantInfo, ParsedTransaction, Transaction, TransactionType, AppContextData } from "../types";
+import { CategorizationExample, Category, EnrichedMerchantInfo, ParsedTransaction, Transaction, TransactionType, AppContextData, SpendingStats, StrategyProposal, UserProfile, GOAL_LABELS } from "../types";
 import { getCachedEnrichment, setCachedEnrichment } from './cachingService';
 import { extractHeuristicData, extractPointsFromDescription } from "./heuristicService";
 import { getCategoryForMerchant } from "./merchantCategoryMapService";
@@ -46,11 +46,11 @@ const cleanJsonInfo = (text: string) => {
         const lastBracket = cleanText.lastIndexOf(']');
 
         if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-             cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+            cleanText = cleanText.substring(firstBrace, lastBrace + 1);
         } else if (firstBracket !== -1 && lastBracket !== -1) {
-             cleanText = cleanText.substring(firstBracket, lastBracket + 1);
+            cleanText = cleanText.substring(firstBracket, lastBracket + 1);
         }
-        
+
         return JSON.parse(cleanText);
     } catch (e) {
         console.error("JSON parsing failed for text:", text);
@@ -59,23 +59,23 @@ const cleanJsonInfo = (text: string) => {
 };
 
 const fileToGenerativePart = (file: File) => {
-  return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result !== 'string') {
-        return reject(new Error("Failed to read file as base64 string."));
-      }
-      const base64Data = reader.result.split(',')[1];
-      resolve({
-        inlineData: {
-          data: base64Data,
-          mimeType: file.type,
-        },
-      });
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
+    return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result !== 'string') {
+                return reject(new Error("Failed to read file as base64 string."));
+            }
+            const base64Data = reader.result.split(',')[1];
+            resolve({
+                inlineData: {
+                    data: base64Data,
+                    mimeType: file.type,
+                },
+            });
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+    });
 };
 
 export const parseBasicInfoFromText = async (text: string): Promise<Pick<ParsedTransaction, 'amount' | 'description' | 'type'>> => {
@@ -106,29 +106,29 @@ export const parseBasicInfoFromText = async (text: string): Promise<Pick<ParsedT
 };
 
 export const parseTransactionsFromFile = async (file: File): Promise<ParsedTransaction[]> => {
-  return retryWithBackoff(async () => {
-      try {
-        let response;
-        const jsonConfig = {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.ARRAY,
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        date: { type: Type.STRING, description: "YYYY-MM-DD format" },
-                        description: { type: Type.STRING },
-                        amount: { type: Type.NUMBER },
-                        type: { type: Type.STRING, enum: ["income", "expense"] }
-                    },
-                    required: ["date", "description", "amount", "type"]
+    return retryWithBackoff(async () => {
+        try {
+            let response;
+            const jsonConfig = {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            date: { type: Type.STRING, description: "YYYY-MM-DD format" },
+                            description: { type: Type.STRING },
+                            amount: { type: Type.NUMBER },
+                            type: { type: Type.STRING, enum: ["income", "expense"] }
+                        },
+                        required: ["date", "description", "amount", "type"]
+                    }
                 }
-            }
-        };
+            };
 
-        if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-            const csvText = await file.text();
-            const combinedPrompt = `Analyze this CSV content representing a financial statement from Kenya.
+            if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                const csvText = await file.text();
+                const combinedPrompt = `Analyze this CSV content representing a financial statement from Kenya.
     - Debit column = expense.
     - Credit column = income.
     - Extract strictly valid JSON.
@@ -136,15 +136,15 @@ export const parseTransactionsFromFile = async (file: File): Promise<ParsedTrans
     ---
     ${csvText}
     ---`;
-            
-            response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: combinedPrompt,
-                config: jsonConfig
-            });
-        } else {
-            const filePart = await fileToGenerativePart(file);
-            const promptAction = `You are a specialized financial parser for Kenyan M-PESA and Bank statements. 
+
+                response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: combinedPrompt,
+                    config: jsonConfig
+                });
+            } else {
+                const filePart = await fileToGenerativePart(file);
+                const promptAction = `You are a specialized financial parser for Kenyan M-PESA and Bank statements. 
             Analyze the provided image/document.
             M-PESA PARSING RULES:
             1. "Paid In" = INCOME, "Withdrawn" = EXPENSE.
@@ -152,24 +152,24 @@ export const parseTransactionsFromFile = async (file: File): Promise<ParsedTrans
             3. Convert "Completion Time" to YYYY-MM-DD.
             Output a JSON Array of transactions.`;
 
-            response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: { parts: [ filePart, { text: promptAction } ] },
-                config: jsonConfig
-            });
-        }
+                response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: { parts: [filePart, { text: promptAction }] },
+                    config: jsonConfig
+                });
+            }
 
-        return cleanJsonInfo(response.text);
-      } catch (error) {
-        console.error("Error parsing transactions from file:", error);
-        throw new Error("AI failed to process the statement. Please ensure it's a clear document and in a supported format.");
-      }
-  });
+            return cleanJsonInfo(response.text);
+        } catch (error) {
+            console.error("Error parsing transactions from file:", error);
+            throw new Error("AI failed to process the statement. Please ensure it's a clear document and in a supported format.");
+        }
+    });
 };
 
 export const enrichTransaction = async (transaction: ParsedTransaction, examples: CategorizationExample[]): Promise<ParsedTransaction & { enrichedInfo?: EnrichedMerchantInfo }> => {
     const { merchant: identifiedMerchant, cacheKey } = extractHeuristicData(transaction.description);
-    
+
     if (identifiedMerchant) {
         const mappedCategory = getCategoryForMerchant(identifiedMerchant);
         if (mappedCategory) {
@@ -182,7 +182,7 @@ export const enrichTransaction = async (transaction: ParsedTransaction, examples
         const merchant = identifiedMerchant || cachedData.merchant;
         return { ...transaction, ...cachedData, merchant };
     }
-    
+
     // Optimization: If it's a very common low-value transaction with no heuristic match, maybe skip enriched info?
     // For now, we use backoff to ensure reliability.
 
@@ -197,21 +197,21 @@ export const enrichTransaction = async (transaction: ParsedTransaction, examples
     - Step 3: Select the most suitable category.
     - Use these examples: ${JSON.stringify(examples)}.
     - Respond ONLY with a valid JSON object (no markdown) with keys "merchant", "category", and optional "enrichedInfo".`;
-            
+
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: prompt,
                 config: {
-                    tools: [{googleSearch: {}}],
+                    tools: [{ googleSearch: {} }],
                 }
             });
-            
+
             const enrichedData = cleanJsonInfo(response.text);
             let finalData: ParsedTransaction & { enrichedInfo?: EnrichedMerchantInfo } = { ...transaction, ...enrichedData };
-            
+
             if (!finalData.enrichedInfo) {
                 const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-                if(groundingChunks && groundingChunks.length > 0) {
+                if (groundingChunks && groundingChunks.length > 0) {
                     const firstWebResult = groundingChunks.find(c => c.web);
                     if (firstWebResult && firstWebResult.web) {
                         finalData.enrichedInfo = {
@@ -221,7 +221,7 @@ export const enrichTransaction = async (transaction: ParsedTransaction, examples
                     }
                 }
             }
-            
+
             setCachedEnrichment(cacheKey, {
                 merchant: finalData.merchant || 'Unknown',
                 category: finalData.category || 'Other',
@@ -242,7 +242,7 @@ export const batchEnrichTransactions = async (
     examples: CategorizationExample[]
 ): Promise<BatchEnrichmentResult[]> => {
     if (transactions.length === 0) return [];
-    
+
     return retryWithBackoff(async () => {
         try {
             const transactionsToProcess = transactions.map(t => ({
@@ -251,7 +251,7 @@ export const batchEnrichTransactions = async (
                 task: t.identifiedMerchant ? 'categorize' : 'enrich',
                 merchant: t.identifiedMerchant,
             }));
-            
+
             const prompt = `Process this list of Kenyan transactions.
     - Use Google Search to identify business types.
     - Assign categories based on examples: ${JSON.stringify(examples)}
@@ -310,7 +310,7 @@ export const suggestTransferPairs = async (transactions: Transaction[]): Promise
                         type: Type.ARRAY,
                         items: {
                             type: Type.ARRAY,
-                            items: { 
+                            items: {
                                 type: Type.OBJECT,
                                 properties: { id: { type: Type.STRING } }
                             }
@@ -319,8 +319,8 @@ export const suggestTransferPairs = async (transactions: Transaction[]): Promise
                 }
             });
             // Map back to full transaction objects
-            const pairsIds: {id: string}[][] = cleanJsonInfo(response.text);
-            return pairsIds.map(pair => 
+            const pairsIds: { id: string }[][] = cleanJsonInfo(response.text);
+            return pairsIds.map(pair =>
                 pair.map(p => recentTxs.find(t => t.id === p.id)).filter((t): t is Transaction => !!t)
             );
         } catch (error) {
@@ -358,7 +358,7 @@ export const validateCategoryMismatch = async (description: string, newCategory:
             return result.is_logical;
         } catch (error) {
             console.error("Error validating category mismatch:", error);
-            return true; 
+            return true;
         }
     }, 1); // Only retry once for validation, it's non-critical
 };
@@ -384,6 +384,57 @@ export const createFinancialChatSession = (context: AppContextData): Chat => {
             - Chamas: ${JSON.stringify(context.chamas)}
             
             Be helpful, concise, and proactive.`,
+        }
+    });
+};
+
+export const generateAiInsights = async (
+    stats: SpendingStats[],
+    userProfile: UserProfile,
+    estimatedIncome: number
+): Promise<StrategyProposal[]> => {
+    return retryWithBackoff(async () => {
+        try {
+            const goalLabel = GOAL_LABELS[userProfile.primaryGoal];
+            const prompt = `Act as a Financial Strategist for ${userProfile.name} (Goal: ${goalLabel}).
+            Analyze these spending patterns (Income ~${estimatedIncome}):
+            ${JSON.stringify(stats)}
+
+            Generate 3 specific budget strategies.
+            Rules:
+            1. "proposedLimit": Realistic monthly limit based on spending & goal.
+            2. "strategy": 'aggressive' (cut >20%), 'moderate' (cut 5-10%), 'maintain' (keep same).
+            3. "rationale": Why this limit? (e.g. "Cuts dining by 10% to save 2k").
+            4. "insight": A friendly, specific observation (e.g. "You spend 15% of income on Uber").
+            
+            Output JSON Array of objects with keys: category, proposedLimit, strategy, rationale, insight.`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                category: { type: Type.STRING },
+                                proposedLimit: { type: Type.NUMBER },
+                                strategy: { type: Type.STRING, enum: ['aggressive', 'moderate', 'maintain'] },
+                                rationale: { type: Type.STRING },
+                                insight: { type: Type.STRING }
+                            },
+                            required: ["category", "proposedLimit", "strategy", "rationale", "insight"]
+                        }
+                    }
+                }
+            });
+
+            return cleanJsonInfo(response.text);
+        } catch (error) {
+            console.error("Error generating AI insights:", error);
+            return [];
         }
     });
 };

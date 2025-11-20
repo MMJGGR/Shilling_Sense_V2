@@ -22,7 +22,7 @@ export interface Account {
 }
 
 export interface Transaction {
-  id:string;
+  id: string;
   accountId: string;
   date: string;
   merchant: string;
@@ -49,35 +49,35 @@ export interface ParsedTransaction {
 }
 
 export interface EnrichedMerchantInfo {
-    officialName: string;
-    website: string;
+  officialName: string;
+  website: string;
 }
 
 // --- NEW FEATURES TYPES ---
 
 export interface LoyaltyCard {
-    id: string;
-    provider: string; // e.g., Safaricom (Bonga), Naivas, Carrefour
-    points: number;
-    lastUpdated: string;
+  id: string;
+  provider: string; // e.g., Safaricom (Bonga), Naivas, Carrefour
+  points: number;
+  lastUpdated: string;
 }
 
 export interface Debt {
-    id: string;
-    person: string; // e.g. "John Kamau"
-    amount: number;
-    type: 'owed_to_me' | 'owed_by_me';
-    dueDate?: string;
-    description?: string;
+  id: string;
+  person: string; // e.g. "John Kamau"
+  amount: number;
+  type: 'owed_to_me' | 'owed_by_me';
+  dueDate?: string;
+  description?: string;
 }
 
 export interface Chama {
-    id: string;
-    name: string;
-    myContribution: number; // Total contributed by user
-    nextMeetingDate?: string;
-    payoutDate?: string;
-    cycleTotal: number; // Target pot size
+  id: string;
+  name: string;
+  myContribution: number; // Total contributed by user
+  nextMeetingDate?: string;
+  payoutDate?: string;
+  cycleTotal: number; // Target pot size
 }
 
 // --- STRATEGIC PLANNING TYPES ---
@@ -85,36 +85,56 @@ export interface Chama {
 export type FinancialGoal = 'save_emergency' | 'pay_debt' | 'invest' | 'buy_asset' | 'travel' | 'control_spend';
 
 export const GOAL_LABELS: Record<FinancialGoal, string> = {
-    save_emergency: 'Build Emergency Fund',
-    pay_debt: 'Pay Off Debt',
-    invest: 'Grow Investments',
-    buy_asset: 'Buy Home/Car',
-    travel: 'Save for Travel',
-    control_spend: 'Control Spending'
+  save_emergency: 'Build Emergency Fund',
+  pay_debt: 'Pay Off Debt',
+  invest: 'Grow Investments',
+  buy_asset: 'Buy Home/Car',
+  travel: 'Save for Travel',
+  control_spend: 'Control Spending'
 };
 
 export interface UserProfile {
-    name: string;
-    age: number;
-    primaryGoal: FinancialGoal;
-    targetAmount?: number;
-    targetDate?: string;
-    joinedDate: string;
+  name: string;
+  age: number;
+  primaryGoal: FinancialGoal;
+  targetAmount?: number;
+  targetDate?: string;
+  joinedDate: string;
 }
 
 export type BudgetStrategy = 'aggressive' | 'moderate' | 'maintain' | 'increase' | 'custom';
 
 export interface Budget {
-    id: string;
-    category: Category;
-    limit: number;
-    period: 'monthly';
-    strategy: BudgetStrategy;
+  id: string;
+  category: Category;
+  limit: number;
+  period: 'monthly' | 'weekly';
+  strategy: BudgetStrategy;
+  rationale?: string; // Why this limit? (AI Generated)
+  status: 'proposed' | 'active' | 'archived';
 }
 
 export interface AppContextData {
-    transactions: Transaction[];
-    loyaltyCards: LoyaltyCard[];
-    debts: Debt[];
-    chamas: Chama[];
+  transactions: Transaction[];
+  loyaltyCards: LoyaltyCard[];
+  debts: Debt[];
+  chamas: Chama[];
+}
+
+export interface SpendingStats {
+  category: Category;
+  totalSpent: number;
+  transactionCount: number;
+  averageTransaction: number;
+  stdDev: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  zScore: number;
+}
+
+export interface StrategyProposal {
+  category: Category;
+  proposedLimit: number;
+  strategy: 'aggressive' | 'moderate' | 'maintain';
+  rationale: string;
+  insight: string;
 }
