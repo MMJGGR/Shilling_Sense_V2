@@ -59,32 +59,68 @@ class MerchantService {
             return;
         }
 
-        // 1. Identify unique unknown merchants
-        const unknownMerchants = new Set<string>();
+        // Import heuristic extraction
+        const { extractHeuristicData } = await import('./heuristicService');
+
+        // 1. Extract merchants using regex first, identify which need API search
+        const merchantsToSearch = new Map<string, string>(); // cleaned name -> raw description
+
         transactions.forEach(t => {
-            if (!this.dictionary[t.merchant] && !this.pendingSearches.has(t.merchant)) {
-                // Simple heuristic: if name is very short or looks like a code, add to search
-                // For now, we search everything that isn't in the dictionary
-                unknownMerchants.add(t.merchant);
+            // Skip if already in dictionary or pending
+            if (this.dictionary[t.merchant] || this.pendingSearches.has(t.merchant)) {
+                return;
+            }
+
+            // Try heuristic extraction first
+            const { merchant: extractedMerchant } = extractHeuristicData(t.description || t.merchant);
+
+            if (extractedMerchant) {
+                // Check if extracted merchant is already in dictionary
+                if (!this.dictionary[extractedMerchant]) {
+                    // Only search if it looks like it needs cleanup (has weird chars, numbers, etc)
+                    if (/[*\d]{2,}|PENDING|TXN|TILL/.test(extractedMerchant)) {
+                        merchantsToSearch.set(extractedMerchant, t.description);
+                    } else {
+                        // Already clean enough, just cache it
+                        this.dictionary[t.merchant] = extractedMerchant;
+                        this.saveDictionary();
+                        this.notifyListeners(t.merchant, extractedMerchant);
+                    }
+                } else {
+                    // Use cached version
+                    this.dictionary[t.merchant] = this.dictionary[extractedMerchant];
+                    this.notifyListeners(t.merchant, this.dictionary[extractedMerchant]);
+                }
+            } else {
+                // No regex match, will need Google Search
+                merchantsToSearch.set(t.merchant, t.description);
             }
         });
 
-        const queue = Array.from(unknownMerchants);
-        if (queue.length === 0) return;
+        const queue = Array.from(merchantsToSearch.entries());
+        if (queue.length === 0) {
+            console.log('Merchant Identification: All merchants identified via regex!');
+            return;
+        }
 
-        console.log(`Merchant Identification: Found ${queue.length} unknown merchants.`);
+        console.log(`Merchant Identification: ${queue.length} merchants need Google Search (${transactions.length - queue.length} identified via regex).`);
 
-        // 2. Process in batches to respect rate limits and UI performance
-        // Google Custom Search Free Tier: 100 queries / day.
-        // We should be conservative.
+        // 2. Process in batches to respect rate limits
+        // Google Custom Search Free Tier: 100 queries / day
         const BATCH_SIZE = 5;
+        const MAX_SEARCHES = 50; // Safety limit
 
-        for (let i = 0; i < queue.length; i += BATCH_SIZE) {
-            const batch = queue.slice(i, i + BATCH_SIZE);
-            await Promise.all(batch.map(rawName => this.searchAndCache(rawName)));
+        const limitedQueue = queue.slice(0, MAX_SEARCHES);
+        if (queue.length > MAX_SEARCHES) {
+            console.warn(`Limiting searches to ${MAX_SEARCHES} to preserve API quota. ${queue.length - MAX_SEARCHES} merchants will use raw names.`);
+        }
 
-            // Small delay between batches
-            if (i + BATCH_SIZE < queue.length) {
+        for (let i = 0; i < limitedQueue.length; i += BATCH_SIZE) {
+            const batch = limitedQueue.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(([merchantName, _description]) => this.searchAndCache(merchantName)));
+
+            // Delay between batches
+            if (i + BATCH_SIZE < limitedQueue.length) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }

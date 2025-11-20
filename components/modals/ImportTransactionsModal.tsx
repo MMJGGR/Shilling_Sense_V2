@@ -163,7 +163,7 @@ const ImportTransactionsModal: React.FC<ImportTransactionsModalProps> = ({ isOpe
   };
 
   useEffect(() => {
-    if (step === 'review' && parsedTransactions.length > 0 && !parsedTransactions[0].merchant) {
+    if (step === 'review' && parsedTransactions.length > 0) {
       setEnrichmentStatus({ processed: 0, total: parsedTransactions.length });
       const enrichAll = async () => {
         const transactionsToEnrich: TransactionToEnrich[] = [];
