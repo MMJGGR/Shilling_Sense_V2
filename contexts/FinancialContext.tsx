@@ -16,7 +16,7 @@ interface FinancialContextType {
     debts: Debt[];
     chamas: Chama[];
     categorizationExamples: CategorizationExample[];
-    
+
     setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
     setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
     setUserProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
@@ -25,14 +25,15 @@ interface FinancialContextType {
     setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
     setChamas: React.Dispatch<React.SetStateAction<Chama[]>>;
     setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
-    
+
     addTransaction: (tx: Omit<Transaction, 'id'>) => void;
     updateTransaction: (tx: Transaction) => void;
     deleteTransaction: (id: string) => void;
     updateCategory: (txId: string, newCategory: Category) => void;
     importTransactions: (txs: Omit<Transaction, 'id'>[]) => void;
     addBudget: (budgets: Omit<Budget, 'id'> | Omit<Budget, 'id'>[]) => void;
-    
+    clearBudgets: () => void;
+
     notification: { message: string; show: boolean; type?: 'info' | 'warning' };
     dismissNotification: () => void;
 }
@@ -50,7 +51,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     const [debts, setDebts] = useLocalStorage<Debt[]>('debts', []);
     const [chamas, setChamas] = useLocalStorage<Chama[]>('chamas', []);
     const [categorizationExamples, setCategorizationExamples] = useLocalStorage<CategorizationExample[]>('categorizationExamples', []);
-    
+
     // FIX: Explicitly typed the useState hook for notification to allow 'warning' type assignment.
     const [notification, setNotification] = useState<{ message: string; show: boolean; type: 'info' | 'warning' }>({ message: '', show: false, type: 'info' });
 
@@ -94,7 +95,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         const newTransaction: Transaction = { ...transactionData, id: Date.now().toString() };
         setTransactions(prev => [...prev, newTransaction]);
         checkAndAddPoints(newTransaction);
-        
+
         if (transactions.length === 0) {
             showToast("Achievement Unlocked: First transaction logged!", 'info');
         }
@@ -116,7 +117,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         // 1. OPTIMISTIC UPDATE: Update UI immediately
         setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, category: newCategory, isTransfer: newCategory === 'Internal Transfer' } : t));
-        
+
         if (!categories.includes(newCategory)) {
             setCategories(prev => [...prev, newCategory].sort());
         }
@@ -146,14 +147,14 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         });
 
         const skippedCount = importedTransactions.length - uniqueImportedTransactions.length;
-        
+
         if (uniqueImportedTransactions.length > 0) {
-            const newTransactions: Transaction[] = uniqueImportedTransactions.map((t, i) => ({ ...t, id: `${Date.now()}-${i}`}));
+            const newTransactions: Transaction[] = uniqueImportedTransactions.map((t, i) => ({ ...t, id: `${Date.now()}-${i}` }));
             setTransactions(prev => [...prev, ...newTransactions]);
 
             let pointsFound = 0;
             newTransactions.forEach(tx => {
-                if(checkAndAddPoints(tx)) pointsFound++;
+                if (checkAndAddPoints(tx)) pointsFound++;
             });
 
             const importedCategories = new Set(uniqueImportedTransactions.map(t => t.category));
@@ -161,7 +162,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
             if (newCategories.length > 0) {
                 setCategories(prev => [...prev, ...newCategories].sort());
             }
-            
+
             const pointsMsg = pointsFound > 0 ? ` & updated ${pointsFound} loyalty cards` : '';
             showToast(`${newTransactions.length} imported${pointsMsg}. ${skippedCount > 0 ? skippedCount + ' skipped.' : ''}`, 'info');
         } else if (skippedCount > 0) {
@@ -187,11 +188,16 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         showToast("Budget Strategy Updated", 'info');
     }, [setBudgets]);
 
+    const clearBudgets = useCallback(() => {
+        setBudgets([]);
+        showToast("All strategies cleared.", 'info');
+    }, [setBudgets]);
+
     return (
         <FinancialContext.Provider value={{
             accounts, transactions, categories, budgets, userProfile, loyaltyCards, debts, chamas, categorizationExamples,
             setAccounts, setTransactions, setUserProfile, setBudgets, setLoyaltyCards, setDebts, setChamas, setCategories,
-            addTransaction, updateTransaction, deleteTransaction, updateCategory, importTransactions, addBudget,
+            addTransaction, updateTransaction, deleteTransaction, updateCategory, importTransactions, addBudget, clearBudgets,
             notification, dismissNotification
         }}>
             {children}

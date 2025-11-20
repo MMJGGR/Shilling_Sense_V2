@@ -11,7 +11,8 @@ interface BudgetViewProps {
     userProfile: UserProfile | null;
     onDelete: (id: string) => void;
     onAddBudget: () => void;
-    onEdit: () => void; 
+    onEdit: () => void;
+    onClearAll: () => void;
 }
 
 const KESFormatter = new Intl.NumberFormat('en-US', {
@@ -21,19 +22,19 @@ const KESFormatter = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
 });
 
-const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProfile, onDelete, onAddBudget, onEdit }) => {
-    
+const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProfile, onDelete, onAddBudget, onEdit, onClearAll }) => {
+
     const spendingMap = useMemo(() => {
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
         const map: Record<string, number> = {};
-        
+
         transactions.forEach(t => {
             const tDate = new Date(t.date);
             if (
-                t.type === TransactionType.Expense && 
+                t.type === TransactionType.Expense &&
                 !t.isTransfer &&
                 tDate.getMonth() === currentMonth &&
                 tDate.getFullYear() === currentYear
@@ -77,7 +78,7 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
                 color: 'text-gray-600 bg-gray-50 border-gray-100'
             };
         }
-        
+
         // Positive reinforcement referencing the goal
         return {
             text: `Great discipline! Saving here helps you ${goalText.toLowerCase()}.`,
@@ -94,8 +95,8 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
                 </div>
                 <h3 className="text-lg font-bold text-gray-900">No Strategies Set</h3>
                 <p className="text-gray-500 max-w-xs mx-auto mt-2 mb-6">
-                    {userProfile 
-                        ? `${userProfile.name}, let's set some spending strategies to help you ${GOAL_LABELS[userProfile.primaryGoal]}.` 
+                    {userProfile
+                        ? `${userProfile.name}, let's set some spending strategies to help you ${GOAL_LABELS[userProfile.primaryGoal]}.`
                         : "Take control of your finances by setting strategic limits."}
                 </p>
                 <Button onClick={onAddBudget}>
@@ -107,15 +108,20 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
 
     return (
         <div className="space-y-6">
-             {userProfile && (
-                <div className="bg-brand-green-50 border border-brand-green-100 rounded-lg p-4 flex items-center gap-3">
-                    <div className="bg-white p-2 rounded-full text-brand-green shadow-sm">
-                        <Target size={20} />
+            {userProfile && (
+                <div className="flex items-center justify-between bg-brand-green-50 border border-brand-green-100 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white p-2 rounded-full text-brand-green shadow-sm">
+                            <Target size={20} />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-brand-gray-800">Primary Focus: {GOAL_LABELS[userProfile.primaryGoal]}</h4>
+                            <p className="text-xs text-brand-gray-600">Your budgets below are designed to help you reach this.</p>
+                        </div>
                     </div>
-                    <div>
-                        <h4 className="font-bold text-brand-gray-800">Primary Focus: {GOAL_LABELS[userProfile.primaryGoal]}</h4>
-                        <p className="text-xs text-brand-gray-600">Your budgets below are designed to help you reach this.</p>
-                    </div>
+                    <button onClick={onClearAll} className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors font-medium">
+                        Clear All
+                    </button>
                 </div>
             )}
 
@@ -131,11 +137,10 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
                                 <div>
                                     <h4 className="font-bold text-gray-800 text-lg">{budget.category}</h4>
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                            budget.strategy === 'aggressive' ? 'bg-red-100 text-red-600' :
-                                            budget.strategy === 'moderate' ? 'bg-yellow-100 text-yellow-600' :
-                                            'bg-blue-100 text-blue-600'
-                                        }`}>
+                                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${budget.strategy === 'aggressive' ? 'bg-red-100 text-red-600' :
+                                                budget.strategy === 'moderate' ? 'bg-yellow-100 text-yellow-600' :
+                                                    'bg-blue-100 text-blue-600'
+                                            }`}>
                                             {budget.strategy === 'custom' ? 'Custom' : budget.strategy}
                                         </span>
                                     </div>
@@ -143,7 +148,7 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
                                 <div className="text-right">
                                     <p className="font-bold text-gray-900">{KESFormatter.format(budget.limit)}</p>
                                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                         <button 
+                                        <button
                                             onClick={() => onDelete(budget.id)}
                                             className="text-gray-300 hover:text-red-500 mt-1 p-1"
                                             title="Delete Budget"
@@ -163,8 +168,8 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
                                     <span className="text-gray-400">{Math.round(percentage)}%</span>
                                 </div>
                                 <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                    <div 
-                                        className={`h-2.5 rounded-full transition-all duration-500 ${getProgressColor((spent/budget.limit)*100)}`} 
+                                    <div
+                                        className={`h-2.5 rounded-full transition-all duration-500 ${getProgressColor((spent / budget.limit) * 100)}`}
                                         style={{ width: `${percentage}%` }}
                                     ></div>
                                 </div>
@@ -178,9 +183,9 @@ const BudgetView: React.FC<BudgetViewProps> = ({ budgets, transactions, userProf
                         </Card>
                     );
                 })}
-                
+
                 {/* Add Button Card */}
-                <button 
+                <button
                     onClick={onAddBudget}
                     className="border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:text-brand-green hover:border-brand-green hover:bg-green-50/30 transition-all min-h-[200px]"
                 >

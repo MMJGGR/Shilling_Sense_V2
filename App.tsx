@@ -112,7 +112,7 @@ const App: React.FC = () => {
         debts, setDebts,
         chamas, setChamas,
         categorizationExamples,
-        addTransaction, updateTransaction, deleteTransaction, updateCategory, importTransactions, addBudget,
+        addTransaction, updateTransaction, deleteTransaction, updateCategory, importTransactions, addBudget, clearBudgets,
         notification, dismissNotification
     } = useFinancialContext();
 
@@ -467,6 +467,7 @@ const App: React.FC = () => {
                             onAddBudget={() => setIsBudgetModalOpen(true)}
                             onDelete={id => setBudgets(prev => prev.filter(b => b.id !== id))}
                             onEdit={() => setIsBudgetModalOpen(true)}
+                            onClearAll={clearBudgets}
                         />
                     )}
                 </main>
